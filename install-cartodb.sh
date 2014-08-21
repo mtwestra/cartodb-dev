@@ -3,27 +3,48 @@
 # This script can be run from the Vagrantfile or manually. See the README.
 sudo cp config/* /usr/local/etc
 chmod u+x setup/*.sh
-sudo bash <<EOF
+
 source settings
-setup/deb-deps.sh
-setup/fetch-sources.sh
-setup/postgis-install.sh
-setup/postgis-setup.sh
-setup/python-deps.sh
-setup/node-deps.sh
-setup/ruby-deps.sh
-setup/cartodb-setup.sh 
-EOF
+echo "---------------------------- starting deb-deps.sh -------------------------------"
+sudo setup/deb-deps.sh
+echo "---------------------------- starting postgres-setup.sh -------------------------------"
+sudo setup/postgres-setup.sh
+echo "---------------------------- starting postgis-install.sh -------------------------------"
+sudo setup/postgis-install.sh
+echo "---------------------------- starting postgis-setup.sh -------------------------------"
+sudo setup/postgis-setup.sh
+echo "---------------------------- starting pg_schema_triggers -------------------------------"
+sudo setup/trigger-setup.sh
+echo "---------------------------- starting fetch-sources.sh -------------------------------"
+sudo setup/fetch-sources.sh
+echo "---------------------------- starting cartodb postgres extension -------------------------------"
+sudo setup/cartodb-extension.sh
+echo "---------------------------- starting python-deps.sh -------------------------------"
+sudo setup/python-deps.sh
+echo "---------------------------- starting node-deps.sh -------------------------------"
+sudo setup/node-deps.sh
+echo "---------------------------- starting ruby-deps.sh -------------------------------"
+sudo setup/ruby-deps.sh
+echo "---------------------------- starting cartodb-install.sh -------------------------------"
+sudo setup/cartodb-install.sh 
+echo "---------------------------- starting cartodb-setup.sh -------------------------------"
+sudo setup/cartodb-setup.sh 
+echo "---------------------------- end of initial setup -------------------------------"
 
+echo "---------------------------- Make sure redis is running -------------------------"
+pgrep redis-server || redis-server &
 
-sudo nohup redis-server &
-source settings # Probably not needed
+echo "---------------------------- start Windshaft app -------------------------------"
+cd /usr/local/src/Windshaft-cartodb
+sudo nohup node app.js development &
+
+echo "---------------------------- start SQL API --------------------------------------"
+cd /usr/local/src/CartoDB-SQL-API
+sudo nohup node app.js development &
+
 cd /usr/local/src/cartodb
-bundle install
-sleep 2s
-script/restore_redis
-sleep 5s # Problem with user data getting lost from redis. Will this help?
+echo "---------------------------- start resque script -------------------------------"
+bundle exec script/resque &
 
-sudo pkill redis-server
-at + 1 minutes script/restore_redis
-sudo foreman start -p 3000
+echo "---------------------------- start web server ----------------------------------"
+bundle exec rails s -p 3000
